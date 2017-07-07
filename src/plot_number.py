@@ -48,7 +48,7 @@ ax2.set_ylabel('group proportion')
 plt.grid()
 
 plt.savefig('three species and group proportion from %d to %d.pdf' % (st, ed))
-# plt.savefig('three species and group proportion all.pdf')
+plt.savefig('three species and group proportion all.pdf')
 
 
 # plt.figure(figsize=(8, 6))
