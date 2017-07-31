@@ -28,6 +28,7 @@ class Env(object):
         self.id_pos = {}
         self.pig_pos = set()
         self.property = {}
+        self.birth_year = {}
         self.rabbit_pos = set()
 
         # For the view size modify
@@ -48,6 +49,11 @@ class Env(object):
 
         # For mortal
         self.dead_id = []
+        # Record the avg_life of the dead people in current time step
+        self.avg_life = None
+        self.dead_people = None
+        # A map: year -> (avg_life, live_year)
+        self.avg_life = {}
 
         # For track largest group
         self.largest_group = 0
@@ -137,6 +143,8 @@ class Env(object):
                     self.id_pos[i + 1] = (x, y)
                     self.property[i + 1] = [self._gen_power(i + 1), [0, 0, 1]]
                     self.health[i + 1] = 1.0
+                    # Record the birthday of any agent
+                    self.birth_year[i + 1] = 0
                     break
         assert (2 * self.max_view_size[0] + 1) * (self.max_view_size[1] + 1) * 5 + self.args.agent_emb_dim == \
                self.args.view_flat_size
@@ -161,7 +169,7 @@ class Env(object):
 
         return candidate_view[random_power][1:]
 
-    def grow_agent(self, agent_num=0):
+    def grow_agent(self, agent_num=0, cur_step=-1):
         if agent_num == 0:
             return
 
@@ -177,7 +185,8 @@ class Env(object):
                     self.property_copy[self.max_id] = self.property[self.max_id][:]
                     self.health[self.max_id] = 1.0
                     self.id_group[self.max_id] = 0
-
+                    # Record the birthday of the new agent
+                    self.birth_year[self.max_id] = cur_step
                     break
 
         self.agent_num += agent_num
@@ -516,7 +525,12 @@ class Env(object):
         for id, _ in self.id_pos.iteritems():
             self.health[id] -= self.args.damage_per_step
 
-    def remove_dead_people(self):
+    def get_avg_life(self):
+        assert self.avg_life != None
+        assert self.dead_people != None
+        return self.avg_life, self.dead_people
+
+    def remove_dead_people(self, cur_step):
 
         def max_view_size(view_size1, view_size2):
             view_size_area1 = (2 * view_size1[0] + 1) * (view_size1[1] + 1)
@@ -566,10 +580,20 @@ class Env(object):
                         self.property[another_id] = self.property_copy[another_id][:]
                         self.groups_view_size[group_id] = None
 
+        total_life = 0
+
         for id in self.dead_id:
+            total_life += cur_step - self.birth_year[id]
             del self.id_pos[id]
             del self.property[id]
             del self.property_copy[id]
+            del self.birth_year[id]
+
+        if len(self.dead_id) == 0:
+            self.avg_life = 0
+        else:
+            self.avg_life = 1. * total_life / (1. * len(self.dead_id))
+        self.dead_people = len(self.dead_id)
 
         return self.dead_id
 

@@ -14,6 +14,7 @@ class Model_DNN():
         self.reward = tf.placeholder(tf.float32)  # 1-D, [batch_size]
         self.maxQ = tf.placeholder(tf.float32)  # 1-D, [batch_size], the max Q-value of next state
         self.learning_rate = tf.placeholder(tf.float32)
+        self.ret_loss = None
 
         self.agent_embeddings = {}
 
@@ -123,7 +124,7 @@ class Model_DNN():
             self.maxQ: maxQ,
             self.learning_rate: learning_rate
         }
-        _ = sess.run(self.train_op, feed_dict)
+        _, self.ret_loss = sess.run([self.train_op, self.loss], feed_dict)
 
     def train(self, sess, view_batches, actions_batches, rewards, maxQ_batches, learning_rate=0.001):
         def split_id_value(input_):
@@ -147,6 +148,9 @@ class Model_DNN():
                     reward_value.append(0.)
 
             self._train(sess, view_value, action_value, reward_value, maxQ_value, learning_rate)
+
+    def get_loss(self):
+        return self.ret_loss
 
     def save(self, sess, filename):
         saver = tf.train.Saver()

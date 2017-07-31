@@ -77,7 +77,7 @@ if __name__ == '__main__':
     env.gen_wall(0.02, seed=argv.random_seed)
     env.gen_agent(argv.agent_number)
 
-    # env.gen_pig(argv.pig_max_number)
+    env.gen_pig(argv.pig_max_number)
     # env.gen_rabbit(argv.rabbit_max_number)
 
     config = tf.ConfigProto()
@@ -121,13 +121,16 @@ if __name__ == '__main__':
             env.take_action(actions)
             env.decrease_health()
             env.update_pig_pos()
-            env.update_rabbit_pos()
+            # env.update_rabbit_pos()
 
             if video_flag:
                 env.dump_image(os.path.join(img_dir, '%d.png' % (t + 1)))
 
             rewards = get_reward(env)  # r, a dictionary
             env.increase_health(rewards)
+            total_reward = 0
+            for k, v in rewards.iteritems():
+                total_reward += v
 
             new_view_batches = get_view(env)  # s'
             maxQ_batches = model.infer_max_action_values(sess, new_view_batches)
@@ -139,8 +142,8 @@ if __name__ == '__main__':
                         maxQ_batches=maxQ_batches,
                         learning_rate=argv.learning_rate)
 
-            # dead_list = env.remove_dead_people()
-            # model.remove_dead_agent_emb(dead_list)  # remove agent embeddings
+            dead_list = env.remove_dead_people(r * argv.time_step + t)
+            model.remove_dead_agent_emb(dead_list)  # remove agent embeddings
 
             cur_pig_num = env.get_pig_num()
             cur_rabbit_num = env.get_rabbit_num()
@@ -166,6 +169,15 @@ if __name__ == '__main__':
             join_num = 1.0 * join_num / len(actions)
             leave_num = 1.0 * leave_num / len(actions)
             info += '\tjoin_ratio\t%f\tleave_ratio\t%f' % (join_num, leave_num)
+            ret_loss = model.get_loss()
+            info += '\tloss\t%f' % (ret_loss)
+            info += '\treward\t%f' % (total_reward)
+            # divided by the number of pig number to normalize
+            normalize_total_reward = 1. * total_reward / env.get_pig_num()
+            info += '\tnorm_reward\t%f' % (normalize_total_reward)
+            avg_life, dead_people = env.get_avg_life()
+            info += '\tavg_life\t%f' % (avg_life)
+            info += '\ttotal_dead_people\t%f' % (dead_people)
 
             print info
 
@@ -180,17 +192,17 @@ if __name__ == '__main__':
             # log_largest_group.write('\t'.join(pos_info) + '\n')
             # log_largest_group.flush()
 
-            # if argv.pig_increase_policy == 0:
-            #     if cur_pig_num < argv.pig_min_number:
-            #         env.gen_pig(argv.pig_max_number - cur_pig_num)
-            # elif argv.pig_increase_policy == 1:
-            #     if t % argv.pig_increase_every == 0:
-            #         env.gen_pig(max(1, int(env.get_pig_num() * argv.pig_increase_rate)))
-            # elif argv.pig_increase_policy == 2:
-            #     env.gen_pig(10)
-            #
+            if argv.pig_increase_policy == 0:
+                if cur_pig_num < argv.pig_min_number:
+                    env.gen_pig(argv.pig_max_number - cur_pig_num)
+            elif argv.pig_increase_policy == 1:
+                if t % argv.pig_increase_every == 0:
+                    env.gen_pig(max(1, int(env.get_pig_num() * argv.pig_increase_rate)))
+            elif argv.pig_increase_policy == 2:
+                env.gen_pig(10)
+
             # env.gen_rabbit(max(10, int(env.get_rabbit_num() * argv.rabbit_increase_rate)))
-            # env.grow_agent(max(1, int(env.get_agent_num() * argv.agent_increase_rate)))
+            env.grow_agent(max(1, int(env.get_agent_num() * argv.agent_increase_rate)), r * argv.time_step + t)
 
             # if (r * argv.time_step + t) % argv.add_every == 0:
             #     if flip:
@@ -199,14 +211,14 @@ if __name__ == '__main__':
             #         env.gen_rabbit(argv.add_rabbit_number)
             #     flip ^= 1
 
-            if flip:
-                if env.get_rabbit_num() < 1000:
-                    env.gen_pig(argv.pig_max_number - env.get_pig_num())
-                    flip ^= 1
-            else:
-                if env.get_pig_num() < 2000:
-                    env.gen_rabbit(argv.rabbit_max_number - env.get_rabbit_num())
-                    flip ^= 1
+            #if flip:
+            #    if env.get_rabbit_num() < 1000:
+            #        env.gen_pig(argv.pig_max_number - env.get_pig_num())
+            #        flip ^= 1
+            #else:
+            #    if env.get_pig_num() < 2000:
+            #        env.gen_rabbit(argv.rabbit_max_number - env.get_rabbit_num())
+            #        flip ^= 1
 
         if argv.save_every_round and r % argv.save_every_round == 0:
             if not os.path.exists(os.path.join(argv.save_dir, "round_%d" % r)):
