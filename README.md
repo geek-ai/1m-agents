@@ -2,7 +2,7 @@
 
 Our goal is to provide a **Multi-Agent Reinforcement Learning** plateform for up to 1 million agents. 
 
-Now the whole plateform is still on working. We provide two specific setting for demo.
+This plateform is still work in progress, but we have provided two specific settings for demo.
 
 You could see two directories `Population Dynamics` and `Collective Grouping Behaviors`, which correspond to the two setting in the paper(when arXiv version is available) respectively.
 
